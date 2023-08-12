@@ -1,6 +1,6 @@
 {
-    "name": "",
-    "rootNamespace": "",
+    "name": "DoubTech.Elevenlabs.Streaming",
+    "rootNamespace": "Doubtech.ElevenLabs.Streaming",
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
