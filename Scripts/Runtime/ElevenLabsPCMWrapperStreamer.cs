@@ -3,14 +3,16 @@ using System.Threading.Tasks;
 using DoubTech.Elevenlabs.Streaming;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
+using UnityEditor;
 #if VOICESDK
 using Meta.WitAi.Attributes;
 #endif
 using UnityEngine;
+using IWebSocket = Doubtech.ElevenLabs.Streaming.Interfaces.IWebSocket;
 
 namespace Doubtech.ElevenLabs.Streaming
 {
-    public class ElevenLabsPCMWrapperStreamer : BaseElevenLabsStreamer, IElevenLabsTTS
+    public class ElevenLabsPCMWrapperStreamer : BaseElevenLabsStreamer, IElevenLabsTTS, IWebSocket
     {
         [SerializeField] private string _host;
         [SerializeField] private int _port;
@@ -25,6 +27,7 @@ namespace Doubtech.ElevenLabs.Streaming
         private bool _open;
         private bool _ready;
         public string Url => string.Format(_url, _host, _port, _apiKey, _voiceId);
+        public bool IsConnected => _open;
 
         protected override void OnMessage(JSONNode json)
         {
@@ -35,18 +38,18 @@ namespace Doubtech.ElevenLabs.Streaming
             base.OnMessage(json);
         }
 
-        public void Disconnect()
+        public async Task Disconnect()
         {
             if (null != _webSocket)
             {
-                _webSocket.Close();
+                await _webSocket.Close();
                 _webSocket = null;
             }
             _open = false;
             _ready = false;
         }
         
-        private async Task Connect()
+        public async Task Connect()
         {
             _ready = false;
             _webSocket = new WebSocket(Url);

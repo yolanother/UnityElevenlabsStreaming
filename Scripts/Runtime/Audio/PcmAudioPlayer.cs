@@ -36,6 +36,7 @@ namespace Doubtech.ElevenLabs.Streaming
         }
 
         public bool IsPlaying => _audioSource.isPlaying;
+        public int StreamBufferSize => audioBuffer.Count;
         public bool IsStreaming => streaming;
         public float Length => totalDataDuration;
         public float CurrentTime => elapsedAudioTime;
@@ -77,6 +78,11 @@ namespace Doubtech.ElevenLabs.Streaming
             timeListeners.Sort((a, b) => b.Time.CompareTo(a.Time));
         }
 
+        public float Duration(int length, int frequency, int channels)
+        {
+            return length / (float)(frequency * channels);
+        }
+
         public void AddData(byte[] buffer, List<ITimedCallback> callbacks = null)
         {
             float[] audioData = ConvertByteArrayToFloatArray(buffer);
@@ -86,7 +92,7 @@ namespace Doubtech.ElevenLabs.Streaming
             }
 
             // Calculate the duration of the added data
-            float addedDataDuration = audioData.Length / (float)(frequency * channels);
+            float addedDataDuration = Duration(buffer.Length, frequency, channels);
             totalDataDuration += addedDataDuration;
 
             if (callbacks != null)

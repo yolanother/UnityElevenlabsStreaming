@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DoubTech.Elevenlabs.Streaming;
 using UnityEngine;
 
@@ -14,7 +15,13 @@ namespace Doubtech.ElevenLabs.Streaming.Interfaces
         public void SendPartial(string text, Action<string> onStarted, Action<string> onFinished);
 
         public void SendFinal(string text);
+    }
 
+    public interface IWebSocket
+    {
+        Task Connect();
+        Task Disconnect();
+        bool IsConnected { get; }
     }
 
     public interface IStreamedPlayer
@@ -45,6 +52,7 @@ namespace Doubtech.ElevenLabs.Streaming.Interfaces
         float CurrentTime { get; }
 
         bool IsPlaying { get; }
+        int StreamBufferSize { get; }
 
         /// <summary>
         /// Initializes a new audio clip with the specified channels and frequency.
@@ -76,5 +84,14 @@ namespace Doubtech.ElevenLabs.Streaming.Interfaces
         void Stop();
         void Pause();
         void Resume();
+        
+        /// <summary>
+        /// Gets the duration of the specified audio data in seconds.
+        /// </summary>
+        /// <param name="audioBytesLength"></param>
+        /// <param name="frequency"></param>
+        /// <param name="channels"></param>
+        /// <returns></returns>
+        float Duration(int audioBytesLength, int frequency, int channels);
     }
 }

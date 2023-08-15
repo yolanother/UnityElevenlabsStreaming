@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using DoubTech.Elevenlabs.Streaming;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
+using Meta.WitAi.Data;
+using UnityEditor;
 using UnityEngine;
 
 namespace Doubtech.ElevenLabs.Streaming
@@ -21,6 +24,10 @@ namespace Doubtech.ElevenLabs.Streaming
         }
         
         private List<WordTrigger> wordStack = new List<WordTrigger>();
+        private List<WordTrigger> chunkQueue = new List<WordTrigger>();
+        
+        private bool _streaming;
+        public bool IsStreaming => _streaming;
         
         private void Start()
         {
@@ -62,6 +69,7 @@ namespace Doubtech.ElevenLabs.Streaming
 
         public virtual async Task StartStreamAsync()
         {
+            _streaming = true;
             wordStack.Clear();
             var json = new JSONObject();
             await OnStartStreamAsync(json);
@@ -71,6 +79,7 @@ namespace Doubtech.ElevenLabs.Streaming
 
         public async Task EndStreamAsync()
         {
+            _streaming = false;
             await OnEndStreamAsync(new JSONObject());
             _player.CompleteClip();
         }
@@ -82,6 +91,24 @@ namespace Doubtech.ElevenLabs.Streaming
             if (!enabled) return;
             var json = new JSONObject();
             json["text"] = text;
+            
+            // Super hacky way to track if a particular chunk was started, but not tracked in the
+            // output msg.
+            var chunkTrigger = new WordTrigger
+            {
+                word = text,
+                onStartChunk = (s) =>
+                {
+                    OnStartChunk(text);
+                    onStarted?.Invoke(text);
+                },
+                onFinishChunk = (s) =>
+                {
+                    OnFinishChunk(text);
+                    onFinished?.Invoke(text);
+                }
+            };
+            chunkQueue.Add(chunkTrigger);
             
             // Get all of the words in the text and ignore empty strings and trim any whitespace
             var regex = new Regex(@"(\w+)", RegexOptions.Compiled);
@@ -97,6 +124,7 @@ namespace Doubtech.ElevenLabs.Streaming
                 {
                     word.onStartChunk = (s) =>
                     {
+                        chunkTrigger.onStartChunk = null;
                         OnStartChunk(text);
                         onStarted?.Invoke(text);
                     };
@@ -106,6 +134,11 @@ namespace Doubtech.ElevenLabs.Streaming
                 {
                     word.onFinishChunk = (s) =>
                     {
+                        // If the start wasn't called, invoke it before calling finish.
+                        chunkTrigger.onStartChunk?.Invoke(text);
+                        chunkTrigger.onFinishChunk = null;
+                        chunkQueue.Remove(chunkTrigger);
+                        
                         OnFinishChunk(text);
                         onFinished?.Invoke(text);
                     };
@@ -133,8 +166,8 @@ namespace Doubtech.ElevenLabs.Streaming
             if (json.HasKey("audio") && json["audio"].HasKey("data"))
             {
                 var audio = json["audio"]["data"].Value;
-                var channels = json["audio"]["channels"];
-                var frequency = json["audio"]["frequency"];
+                var channels = json["audio"]["channels"].AsInt;
+                var frequency = json["audio"]["frequency"].AsInt;
                 var audioBytes = System.Convert.FromBase64String(audio);
                 if(!_player.IsStreaming) _player.StartClip(channels, frequency);
                 
@@ -168,12 +201,6 @@ namespace Doubtech.ElevenLabs.Streaming
                         string c = chars[i].Value;
                         float t = times[i].AsInt / 1000f;
                         float d = durations[i].AsInt / 1000f;
-                        callbacks.Add(new TimedCallback(t, () =>
-                        {
-                            Debug.Log($"Played {c} at {t} for {d}");
-                            Debug.Log("Wordstack: " + string.Join(", ", wordStack.Select(w => w.word)));
-
-                        }));
                         
                         // If c is Regex word character
                         if (Regex.IsMatch(c, @"\w"))
@@ -182,24 +209,12 @@ namespace Doubtech.ElevenLabs.Streaming
                         }
                         else
                         {
-                            Debug.Log("Word: " + word.ToString());
-                            if (wordStack.Count > 0 && wordStack[0].word == word.ToString())
-                            {
-                                var wordTrigger = wordStack[0];
-                                wordStack.RemoveAt(0);
-                                if(null != wordTrigger.onStartChunk) callbacks.Add(new TimedCallback(0, () => wordTrigger.onStartChunk(word.ToString())));
-                                if(null != wordTrigger.onFinishChunk) callbacks.Add(new TimedCallback(0, () => wordTrigger.onFinishChunk(word.ToString())));
-                            }
+                            var w = word.ToString();
+                            ProcessWord(w, callbacks);
                             word.Clear();
                         }
                     }
-                    if (wordStack.Count > 0 && wordStack[0].word == word.ToString())
-                    {
-                        var wordTrigger = wordStack[0];
-                        wordStack.RemoveAt(0);
-                        if(null != wordTrigger.onStartChunk) callbacks.Add(new TimedCallback(0, () => wordTrigger.onStartChunk(word.ToString())));
-                        if(null != wordTrigger.onFinishChunk) callbacks.Add(new TimedCallback(0, () => wordTrigger.onFinishChunk(word.ToString())));
-                    }
+                    ProcessWord(word.ToString(), callbacks);
                     
                     // Add a callback for after the last letter
                     float last = (times[times.Count - 1].AsInt + durations[durations.Count - 1].AsInt) / 1000f;
@@ -212,11 +227,153 @@ namespace Doubtech.ElevenLabs.Streaming
                     }));
                 }
                 
+                callbacks.Add(new TimedCallback(_player.Duration(audioBytes.Length, frequency, channels), () =>
+                {
+                    Debug.Log("Finished playing chunk.");
+                    
+                    // Flush the buffer if this segment ended and there is no more data to play.
+                    if (_player.StreamBufferSize == 0)
+                    {
+                        Debug.Log("Flushing word queue, looks like the buffer is empty.");
+                        foreach (var word in wordStack)
+                        {
+                            word.onStartChunk?.Invoke(word.word);
+                            word.onFinishChunk?.Invoke(word.word);
+                        }
+                        wordStack.Clear();
+                    }
+                }));
                 _player.AddData(audioBytes, callbacks);
                 json["audio"]["data"] = "Read and played.";
+            }
+            else if (_player.StreamBufferSize == 0)
+            {
+                Debug.Log("Flushing word queue, looks like the buffer is empty.");
+                foreach (var word in wordStack)
+                {
+                    word.onStartChunk?.Invoke(word.word);
+                    word.onFinishChunk?.Invoke(word.word);
+                }
+                wordStack.Clear();
             }
 
             Debug.Log("OnMessage: \n" + json.ToString());
         }
+
+        private void ProcessWord(string word, List<ITimedCallback> callbacks)
+        {
+            Debug.Log("Word: " + word);
+            if (wordStack.Count > 0 && !string.IsNullOrEmpty(word?.Trim()))
+            {
+                while (wordStack[0].word != word)
+                {
+                    // Flush the queue, we missed a word.
+                    var wordTrigger = wordStack[0];
+                    ProcessWordTrigger(wordTrigger, callbacks, wordTrigger.word);
+                }
+
+                if (wordStack[0].word == word)
+                {
+                    var wordTrigger = wordStack[0];
+                    ProcessWordTrigger(wordTrigger, callbacks, word);
+                }
+            }
+        }
+
+        private void ProcessWordTrigger(WordTrigger wordTrigger, List<ITimedCallback> callbacks, string word)
+        {
+            wordStack.RemoveAt(0);
+            if (null != wordTrigger.onStartChunk)
+            {
+                callbacks.Add(new TimedCallback(0,
+                    () => wordTrigger.onStartChunk(word)));
+            }
+
+            if (null != wordTrigger.onFinishChunk)
+            {
+                callbacks.Add(new TimedCallback(0,
+                    () => wordTrigger.onFinishChunk(word)));
+            }
+        }
     }
+    
+#if UNITY_EDITOR
+    [UnityEditor.CustomEditor(typeof(BaseElevenLabsStreamer), true)]
+    public class ElevenLabsPCMWrapperStreamerEditor : UnityEditor.Editor
+    {
+        private bool _simulateStreamed;
+        private float _delayBetweenSentences = .1f;
+
+        public override void OnInspectorGUI()
+        {
+            base.OnInspectorGUI();
+            
+            GUILayout.Space(16);
+            GUILayout.Label("Debug");
+            
+            var streamer = (BaseElevenLabsStreamer) target;
+            var text = EditorPrefs.GetString(target.GetType().FullName + "::text", "");
+            var t = GUILayout.TextArea(text);
+            if (t != text)
+            {
+                EditorPrefs.SetString(target.GetType().FullName + "::text", t);
+            }
+            
+            if (GUILayout.Button("Send"))
+            {
+                if (_simulateStreamed) SimulateResponse(t);
+                else streamer.Send(t);
+            }
+
+            var toggle = GUILayout.Toggle(streamer.IsStreaming, "Text Stream");
+            if (!streamer.IsStreaming && toggle)
+            {
+                streamer.StartStream();
+            }
+            else if (streamer.IsStreaming && !toggle)
+            {
+                streamer.EndStream();
+            }
+            _simulateStreamed = GUILayout.Toggle(_simulateStreamed, "Simulate Streamed");
+            _delayBetweenSentences = EditorGUILayout.FloatField("Delay Between Sentences", _delayBetweenSentences);
+
+            if (GUILayout.Button("Ping"))
+            {
+                streamer.Send("ping");
+            }
+
+            if ((streamer is IWebSocket ws))
+            {
+                GUILayout.BeginHorizontal();
+                if (!ws.IsConnected && GUILayout.Button("Connect"))
+                {
+                    ws.Connect();
+                }
+
+                if (ws.IsConnected && GUILayout.Button("Disconnect"))
+                {
+                    ws.Disconnect();
+                }
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        private async void SimulateResponse(string text)
+        {
+            var streamer = (BaseElevenLabsStreamer) target;
+            var sentences = text.Split(new[] {". "}, StringSplitOptions.RemoveEmptyEntries);
+            streamer.StartStream();
+            for (int i = 0; i < sentences.Length; i++)
+            {
+                var sentence = sentences[i];
+                streamer.SendPartial(sentence);
+                if (i < sentences.Length - 1)
+                {
+                    await Task.Delay((int) (_delayBetweenSentences * 1000));
+                }
+            }
+            streamer.EndStream();
+        }
+    }
+#endif
 }
