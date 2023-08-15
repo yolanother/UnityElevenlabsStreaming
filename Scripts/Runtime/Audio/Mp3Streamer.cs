@@ -1,11 +1,12 @@
 ﻿using UnityEngine;
+#if NAUDIO
 using NAudio.Wave;
+#endif
 using System.IO;
 using System.Collections.Generic;
 
 namespace Doubtech.ElevenLabs.Streaming
 {
-
     public class Mp3Streamer : MonoBehaviour
     {
         private AudioSource audioSource;
@@ -15,6 +16,13 @@ namespace Doubtech.ElevenLabs.Streaming
         void Awake()
         {
             audioSource = GetComponent<AudioSource>();
+        }
+
+        private void OnEnable()
+        {
+#if !NAUDIO
+            enabled = false;
+#endif
         }
 
         public void AddMp3Chunk(byte[] mp3Data)
@@ -30,6 +38,7 @@ namespace Doubtech.ElevenLabs.Streaming
 
         private void PlayNextChunk()
         {
+            #if NAUDIO
             if (mp3Chunks.Count == 0)
             {
                 isPlaying = false;
@@ -53,6 +62,7 @@ namespace Doubtech.ElevenLabs.Streaming
 
             mp3Reader.Close();
             mp3Stream.Close();
+            #endif
         }
 
         void Update()

@@ -1,5 +1,8 @@
+using System;
 using System.IO;
+#if NAUDIO
 using NAudio.Wave;
+#endif
 using UnityEngine;
 
 namespace Doubtech.ElevenLabs.Streaming
@@ -9,15 +12,26 @@ namespace Doubtech.ElevenLabs.Streaming
         [SerializeField] private AudioSource audioSource;
         
         private MemoryStream mp3Stream;
+#if NAUDIO
         private Mp3FileReader mp3Reader;
+#endif
 
         void Awake()
         {
             if(!audioSource) audioSource = GetComponent<AudioSource>();
         }
 
+        private void OnEnable()
+        {
+            #if !NAUDIO
+            enabled = false;
+            #endif
+        }
+
+
         public void StreamMp3(byte[] mp3Data)
         {
+#if NAUDIO
             if (mp3Stream != null)
             {
                 mp3Stream.Close();
@@ -42,6 +56,9 @@ namespace Doubtech.ElevenLabs.Streaming
 
             mp3Reader.Close();
             mp3Stream.Close();
+#else
+            Debug.LogWarning("Playback with Mp3Player is disabled. NAudio is not enabled for this project.");
+#endif
         }
     }
 }

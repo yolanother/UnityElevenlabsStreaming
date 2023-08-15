@@ -1,6 +1,12 @@
 {
     "name": "DoubTech.Elevenlabs.Streaming",
     "rootNamespace": "Doubtech.ElevenLabs.Streaming",
+    "references": [
+        "Meta.WitAi",
+        "Meta.WitAi.TTS",
+        "Meta.WitAi.Lib",
+        "Meta.Wit.Composer"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -8,6 +14,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.meta.witai",
+            "expression": "",
+            "define": "VOICESDK"
+        }
+    ],
     "noEngineReferences": false
 }

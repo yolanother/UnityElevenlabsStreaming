@@ -2,12 +2,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using Doubtech.ElevenLabs.Streaming.Interfaces;
 using UnityEngine;
 using UnityEngine.Events;
 
 namespace Doubtech.ElevenLabs.Streaming
 {
-    public class PcmAudioPlayer : MonoBehaviour, IPcmPlayer
+    public class PcmAudioPlayer : MonoBehaviour, IStreamedPlayer
     {
         [SerializeField] private AudioSource _audioSource;
 
@@ -26,7 +27,7 @@ namespace Doubtech.ElevenLabs.Streaming
         private int frequency;
         private int channels;
         private float totalDataDuration = 0;
-        
+
         private ConcurrentQueue <ITimedCallback> _callbackQueue = new ConcurrentQueue<ITimedCallback>(); 
 
         private void Awake()
@@ -34,6 +35,7 @@ namespace Doubtech.ElevenLabs.Streaming
             if (!_audioSource) _audioSource = GetComponent<AudioSource>();
         }
 
+        public bool IsPlaying => _audioSource.isPlaying;
         public bool IsStreaming => streaming;
         public float Length => totalDataDuration;
         public float CurrentTime => elapsedAudioTime;
@@ -75,7 +77,7 @@ namespace Doubtech.ElevenLabs.Streaming
             timeListeners.Sort((a, b) => b.Time.CompareTo(a.Time));
         }
 
-        public void AddPcmData(byte[] buffer, List<ITimedCallback> callbacks = null)
+        public void AddData(byte[] buffer, List<ITimedCallback> callbacks = null)
         {
             float[] audioData = ConvertByteArrayToFloatArray(buffer);
             lock (audioBuffer)
@@ -180,11 +182,27 @@ namespace Doubtech.ElevenLabs.Streaming
             }
         }
 
-        public void PlayPcm(byte[] buffer, int channels, int frequency)
+        public void PlayData(byte[] buffer, int channels, int frequency)
         {
             StartClip(channels, frequency);
-            AddPcmData(buffer);
+            AddData(buffer);
             CompleteClip();
+        }
+
+        public void Stop()
+        {
+            CompleteClip();
+            _audioSource.Stop();
+        }
+
+        public void Pause()
+        {
+            _audioSource.Pause();
+        }
+
+        public void Resume()
+        {
+            _audioSource.UnPause();
         }
 
         private float[] ConvertByteArrayToFloatArray(byte[] audioBytes)
@@ -262,60 +280,5 @@ namespace Doubtech.ElevenLabs.Streaming
                 tuple.Item2
             );
         }
-    }
-
-    public interface IPcmPlayer
-    {
-        /// <summary>
-        /// Triggered when a new audio clip begins playing.
-        /// </summary>
-        event Action OnClipStart;
-
-        /// <summary>
-        /// Triggered when the audio clip stops playing.
-        /// </summary>
-        event Action OnClipStop;
-
-        /// <summary>
-        /// Indicates whether the player is currently streaming audio.
-        /// </summary>
-        bool IsStreaming { get; }
-
-        /// <summary>
-        /// Returns the total length of the currently playing or buffered audio clip in seconds.
-        /// </summary>
-        float Length { get; }
-
-        /// <summary>
-        /// Returns the current playback time of the audio clip in seconds.
-        /// </summary>
-        float CurrentTime { get; }
-
-        /// <summary>
-        /// Initializes a new audio clip with the specified channels and frequency.
-        /// </summary>
-        /// <param name="channels">Number of audio channels.</param>
-        /// <param name="frequency">Sample frequency of the audio.</param>
-        void StartClip(int channels, int frequency);
-
-        /// <summary>
-        /// Indicates that no more data will be added to the audio clip, marking it as complete.
-        /// </summary>
-        void CompleteClip();
-
-        /// <summary>
-        /// Adds PCM data to the audio buffer. Optional callbacks can be provided to be triggered at specific times relative to the added data.
-        /// </summary>
-        /// <param name="buffer">The PCM data buffer to add.</param>
-        /// <param name="callbacks">List of callbacks with their associated trigger times relative to the start of the added data.</param>
-        void AddPcmData(byte[] buffer, List<ITimedCallback> callbacks = null);
-
-        /// <summary>
-        /// Starts playback of a PCM audio buffer with the specified channels and frequency.
-        /// </summary>
-        /// <param name="pcmData">PCM audio data to play.</param>
-        /// <param name="channels">Number of audio channels.</param>
-        /// <param name="frequency">Sample frequency of the audio.</param>
-        void PlayPcm(byte[] pcmData, int channels, int frequency);
     }
 }
