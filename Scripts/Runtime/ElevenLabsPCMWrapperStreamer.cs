@@ -51,14 +51,29 @@ namespace Doubtech.ElevenLabs.Streaming
         
         public async Task Connect()
         {
+            if (_open)
+            {
+                Debug.Log("Waiting for server to be ready...");
+                while (!_ready && enabled)
+                {
+                    await Task.Yield();
+                }
+                Debug.Log("Connected!");
+                return;
+            }
+
             _ready = false;
             _webSocket = new WebSocket(Url);
             _webSocket.OnOpen += OnOpen;
             _webSocket.OnMessage += HandleByteMessage;
             _webSocket.OnError += OnError;
             _webSocket.OnClose += OnClose;
-            await _webSocket.Connect();
+            Debug.Log("Connecting...");
             
+            // Don't await the connection, Connect stays open until the server is closed.
+            _webSocket.Connect();
+            
+            Debug.Log("Waiting for server to be ready...");
             while (!_ready && enabled)
             {
                 await Task.Yield();
@@ -99,8 +114,7 @@ namespace Doubtech.ElevenLabs.Streaming
         {
             if (!enabled) return;
             
-            if (null == _webSocket) await Connect();
-            else if (_webSocket.State != WebSocketState.Open) await Connect();
+            await Connect();
             await _webSocket.SendText(json.ToString());
         }
 
