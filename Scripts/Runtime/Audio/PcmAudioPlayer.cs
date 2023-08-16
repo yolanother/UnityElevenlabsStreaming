@@ -151,6 +151,9 @@ namespace Doubtech.ElevenLabs.Streaming
             
             FlushCallbacks();
             Debug.Log("Stopped tracking playback at " + _audioSource.time);
+            
+            OnClipStop?.Invoke();
+            _audioSource.Stop();
         }
 
         private void FlushCallbacks()
@@ -180,11 +183,8 @@ namespace Doubtech.ElevenLabs.Streaming
             // Check for clip completion
             if (clipCompleted && audioBuffer.Count == 0)
             {
-                OnClipStop?.Invoke();
                 clipCompleted = false;
                 streaming = false;
-                _audioSource.Stop();
-                Debug.Log("Stopped playback.");
             }
         }
 

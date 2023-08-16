@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using DoubTech.Elevenlabs.Streaming;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
-using UnityEditor;
 #if VOICESDK
 using Meta.WitAi.Attributes;
 #endif
@@ -26,6 +25,7 @@ namespace Doubtech.ElevenLabs.Streaming
         private WebSocket _webSocket;
         private bool _open;
         private bool _ready;
+        private bool _connecting;
         public string Url => string.Format(_url, _host, _port, _apiKey, _voiceId);
         public bool IsConnected => _open;
 
@@ -51,17 +51,16 @@ namespace Doubtech.ElevenLabs.Streaming
         
         public async Task Connect()
         {
-            if (_open)
+            if (_open || _connecting)
             {
-                Debug.Log("Waiting for server to be ready...");
                 while (!_ready && enabled)
                 {
                     await Task.Yield();
                 }
-                Debug.Log("Connected!");
                 return;
             }
 
+            _connecting = true;
             _ready = false;
             _webSocket = new WebSocket(Url);
             _webSocket.OnOpen += OnOpen;
@@ -73,21 +72,20 @@ namespace Doubtech.ElevenLabs.Streaming
             // Don't await the connection, Connect stays open until the server is closed.
             _webSocket.Connect();
             
-            Debug.Log("Waiting for server to be ready...");
             while (!_ready && enabled)
             {
                 await Task.Yield();
             }
+
+            _connecting = false;
             Debug.Log("Connected!");
         }
 
         private void OnOpen()
         {
-            Debug.Log("Connection open!");
+            _connecting = false;
             _open = true;
         }
-
-        
 
         private void OnTimeHit()
         {
@@ -101,6 +99,7 @@ namespace Doubtech.ElevenLabs.Streaming
 
         private void OnClose(WebSocketCloseCode code)
         {
+            _connecting = false;
             Debug.Log("OnClose! " + code);
             Disconnect();
         }
@@ -108,6 +107,12 @@ namespace Doubtech.ElevenLabs.Streaming
         private void OnDisable()
         {
             Disconnect();
+        }
+
+        public override async Task StartStreamAsync()
+        {
+            await Connect();
+            await base.StartStreamAsync();
         }
 
         protected override async Task OnStartStreamAsync(JSONObject json)
@@ -120,8 +125,14 @@ namespace Doubtech.ElevenLabs.Streaming
 
         protected override async Task OnSendChunk(JSONObject json)
         {
-            if (null == _webSocket) await StartStreamAsync();
             await _webSocket.SendText(json.ToString());
+        }
+
+        public override async Task SendChunkAsync(string text, Action<string> onStarted, Action<string> onFinished)
+        {
+            await Connect();
+            await StartStreamAsync();
+            await base.SendChunkAsync(text, onStarted, onFinished);
         }
 
         protected override async Task OnEndStreamAsync(JSONObject json)
@@ -131,7 +142,6 @@ namespace Doubtech.ElevenLabs.Streaming
             json["final"] = true;
             await _webSocket.SendText(json.ToString());
         }
-        
 
         private void Update()
         {
