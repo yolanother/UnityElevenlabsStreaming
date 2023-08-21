@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using DoubTech.Elevenlabs.Streaming;
+using Doubtech.ElevenLabs.Streaming.Data;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
 #if VOICESDK
@@ -13,20 +14,14 @@ namespace Doubtech.ElevenLabs.Streaming
 {
     public class ElevenLabsPCMWrapperStreamer : BaseElevenLabsStreamer, IElevenLabsTTS, IWebSocket
     {
-        [SerializeField] private string _host;
-        [SerializeField] private int _port;
-        #if VOICESDK
-        [HiddenText]
-        #endif
-        [SerializeField] private string _apiKey;
+        [SerializeField] private ElevenLabsWrapperData _serverConfig;
         [SerializeField] private string _voiceId;
 
-        private string _url = "ws://{0}:{1}/ws/synthesize?apikey={2}&voice={3}";
         private WebSocket _webSocket;
         private bool _open;
         private bool _ready;
         private bool _connecting;
-        public string Url => string.Format(_url, _host, _port, _apiKey, _voiceId);
+        public string Url => _serverConfig.Url(_voiceId);
         public bool IsConnected => _open;
 
         protected override void OnMessage(JSONNode json)
