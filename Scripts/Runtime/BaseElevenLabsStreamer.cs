@@ -43,12 +43,17 @@ namespace Doubtech.ElevenLabs.Streaming
 
         public void StartStream() => StartStreamAsync();
         
-        public void EndStream() => EndStreamAsync();
-        
+        public void EndStream()
+        {
+            if(null != _terminateChunk) StopCoroutine(_terminateChunk);
+            EndStreamAsync();
+        }
+
         public void SendPartial(string text) => SendChunkAsync(text, null, null);
         
         public void SendPartial(string text, Action<string> onStarted, Action<string> onFinished)
         {
+            Debug.Log("Sending: " + text);
             SendChunkAsync(text, onStarted, onFinished);
         }
 
@@ -69,11 +74,15 @@ namespace Doubtech.ElevenLabs.Streaming
 
         public virtual async Task StartStreamAsync()
         {
+            if(null != _terminateChunk) StopCoroutine(_terminateChunk);
             if (_streaming) return;
             
             Debug.Log("StartStreamAsync");
             _streaming = true;
-            wordStack.Clear();
+            lock (wordStack)
+            {
+                wordStack.Clear();
+            }
             var json = new JSONObject();
             await OnStartStreamAsync(json);
         }
@@ -83,7 +92,7 @@ namespace Doubtech.ElevenLabs.Streaming
         public async Task EndStreamAsync()
         {
             if (!_streaming) return;
-            
+            Debug.Log("Ending stream.");
             _streaming = false;
             await OnEndStreamAsync(new JSONObject());
             _player.CompleteClip();
@@ -152,18 +161,27 @@ namespace Doubtech.ElevenLabs.Streaming
                         finish?.Invoke(chunkTrigger.word);
                     };
                 }
-                wordStack.Add(word);
+
+                lock (wordStack)
+                {
+                    wordStack.Add(word);
+                }
             }
 
             await OnSendChunk(json);
             if(null != _terminateChunk) StopCoroutine(_terminateChunk);
-            _terminateChunk = StartCoroutine(TerminateChunk());
+            float delay;
+            lock (wordStack)
+            {
+                delay = wordStack.Count * .5f;
+            }
+            _terminateChunk = StartCoroutine(TerminateChunk(delay));
         }
 
-        private IEnumerator TerminateChunk()
+        private IEnumerator TerminateChunk(float duration)
         {
-            yield return new WaitForSeconds(.25f);
-            EndStream();
+            yield return new WaitForSeconds(duration);
+            EndStreamAsync();
         }
 
         protected virtual void OnFinishChunk(string text)
@@ -233,12 +251,16 @@ namespace Doubtech.ElevenLabs.Streaming
                     // Flush the buffer if this segment ended and there is no more data to play.
                     if (_player.StreamBufferSize == 0)
                     {
-                        foreach (var word in wordStack)
+                        lock (wordStack)
                         {
-                            word.onStartChunk?.Invoke(word.word);
-                            word.onFinishChunk?.Invoke(word.word);
+                            foreach (var word in wordStack)
+                            {
+                                word.onStartChunk?.Invoke(word.word);
+                                word.onFinishChunk?.Invoke(word.word);
+                            }
+
+                            wordStack.Clear();
                         }
-                        wordStack.Clear();
                     }
                 }));
                 _player.AddData(audioBytes, callbacks);
@@ -246,12 +268,16 @@ namespace Doubtech.ElevenLabs.Streaming
             }
             else if (_player.StreamBufferSize == 0)
             {
-                foreach (var word in wordStack)
+                lock (wordStack)
                 {
-                    word.onStartChunk?.Invoke(word.word);
-                    word.onFinishChunk?.Invoke(word.word);
+                    foreach (var word in wordStack)
+                    {
+                        word.onStartChunk?.Invoke(word.word);
+                        word.onFinishChunk?.Invoke(word.word);
+                    }
+
+                    wordStack.Clear();
                 }
-                wordStack.Clear();
             }
 
             Debug.Log("OnMessage: \n" + json.ToString());
@@ -259,26 +285,33 @@ namespace Doubtech.ElevenLabs.Streaming
 
         private void ProcessWord(string word, List<ITimedCallback> callbacks)
         {
-            if (wordStack.Count > 0 && !string.IsNullOrEmpty(word?.Trim()))
+            lock (wordStack)
             {
-                while (wordStack[0].word != word)
+                if (wordStack.Count > 0 && !string.IsNullOrEmpty(word?.Trim()))
                 {
-                    // Flush the queue, we missed a word.
-                    var wordTrigger = wordStack[0];
-                    ProcessWordTrigger(wordTrigger, callbacks, wordTrigger.word);
-                }
+                    while (wordStack[0].word != word)
+                    {
+                        // Flush the queue, we missed a word.
+                        var wordTrigger = wordStack[0];
+                        ProcessWordTrigger(wordTrigger, callbacks, wordTrigger.word);
+                    }
 
-                if (wordStack[0].word == word)
-                {
-                    var wordTrigger = wordStack[0];
-                    ProcessWordTrigger(wordTrigger, callbacks, word);
+                    if (wordStack[0].word == word)
+                    {
+                        var wordTrigger = wordStack[0];
+                        ProcessWordTrigger(wordTrigger, callbacks, word);
+                    }
                 }
             }
         }
 
         private void ProcessWordTrigger(WordTrigger wordTrigger, List<ITimedCallback> callbacks, string word)
         {
-            wordStack.RemoveAt(0);
+            lock (wordStack)
+            {
+                wordStack.RemoveAt(0);
+            }
+
             if (null != wordTrigger.onStartChunk)
             {
                 callbacks.Add(new TimedCallback(0,

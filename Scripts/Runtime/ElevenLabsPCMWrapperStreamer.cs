@@ -34,6 +34,7 @@ namespace Doubtech.ElevenLabs.Streaming
             if (!_ready)
             {
                 _ready = json.HasKey("ready");
+                Debug.Log("Ready!");
             }
             base.OnMessage(json);
         }
@@ -113,6 +114,9 @@ namespace Doubtech.ElevenLabs.Streaming
         {
             await Connect();
             await base.StartStreamAsync();
+            var json = new JSONObject();
+            json["text"] = " ";
+            _webSocket.SendText(json);
         }
 
         protected override async Task OnStartStreamAsync(JSONObject json)

@@ -40,6 +40,7 @@ namespace Doubtech.ElevenLabs.Streaming
         public bool IsStreaming => streaming;
         public float Length => totalDataDuration;
         public float CurrentTime => elapsedAudioTime;
+        public AudioClip Clip => streamingClip;
 
         public void StartClip(int channels, int frequency)
         {

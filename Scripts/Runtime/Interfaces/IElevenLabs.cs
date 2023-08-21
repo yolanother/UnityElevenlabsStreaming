@@ -53,6 +53,7 @@ namespace Doubtech.ElevenLabs.Streaming.Interfaces
 
         bool IsPlaying { get; }
         int StreamBufferSize { get; }
+        AudioClip Clip { get; }
 
         /// <summary>
         /// Initializes a new audio clip with the specified channels and frequency.
