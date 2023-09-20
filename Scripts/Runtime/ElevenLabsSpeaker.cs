@@ -173,6 +173,12 @@ namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
                 });
         }
 
+        public void Speak(string textToSpeak, TTSSpeakerClipEvents playbackEvents)
+        {
+            Stop();
+            RequestSpeech(textToSpeak, playbackEvents);
+        }
+
         public void SpeakQueued(string text, TTSSpeakerClipEvents playbackEvents)
         {
             RequestSpeech(text, playbackEvents);
