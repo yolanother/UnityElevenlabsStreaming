@@ -35,32 +35,6 @@ namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
             _elevenLabs = GetComponent<IElevenLabsTTS>();
         }
 
-        public class ElevenLabsQueue
-        {
-            public string text;
-            public string key;
-            #if VOICESDK
-            [SerializeField]
-            public TTSSpeakerClipEvents events = new TTSSpeakerClipEvents();
-            public TTSClipData clipData;
-            #endif
-
-            public ElevenLabsQueue(string text)
-            {
-                this.text = text;
-                key = CreateKey(text);
-            }
-
-#if VOICESDK
-            public ElevenLabsQueue(string text, TTSSpeakerClipEvents events) : this(text)
-            {
-                this.events = events;
-            }
-#endif
-
-            public static string CreateKey(string text) => Regex.Replace(text, @"[^\w]+", "");
-        };
-
         private Dictionary<string, List<ElevenLabsQueue>> activeRequests = new Dictionary<string, List<ElevenLabsQueue>>();
 
         private bool _isSpeaking;
@@ -87,6 +61,7 @@ namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
             _elevenLabs.EndStream();
             _player.Stop();
 
+            #if VOICESDK
             foreach (var sets in activeRequests.Values)
             {
                 foreach (var r in sets)
@@ -94,6 +69,7 @@ namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
                     r.events?.OnPlaybackCancelled?.Invoke(null, r.clipData, r.text);
                 }
             }
+            #endif
         }
 
         public void Pause()
@@ -215,5 +191,33 @@ namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
         }
 #endif
         #endregion
+    }
+    
+    
+
+    public class ElevenLabsQueue
+    {
+        public string text;
+        public string key;
+#if VOICESDK
+        [SerializeField]
+        public TTSSpeakerClipEvents events = new TTSSpeakerClipEvents();
+        public TTSClipData clipData;
+#endif
+
+        public ElevenLabsQueue(string text)
+        {
+            this.text = text;
+            key = CreateKey(text);
+        }
+
+#if VOICESDK
+        public ElevenLabsQueue(string text, TTSSpeakerClipEvents events) : this(text)
+        {
+            this.events = events;
+        }
+#endif
+
+        public static string CreateKey(string text) => Regex.Replace(text, @"[^\w]+", "");
     }
 }
