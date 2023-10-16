@@ -42,6 +42,7 @@ namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
         #region Voice SDK Speaker
 
         public bool IsSpeaking => _player.IsPlaying;
+        public bool IsPaused => false;
         public string VoiceID { get; set; }
         
 
