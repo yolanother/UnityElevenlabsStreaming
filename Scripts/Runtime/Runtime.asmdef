@@ -5,7 +5,9 @@
         "Meta.WitAi",
         "Meta.WitAi.TTS",
         "Meta.WitAi.Lib",
-        "Meta.Wit.Composer"
+        "Meta.Wit.Composer",
+        "UnityEditor.UI",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

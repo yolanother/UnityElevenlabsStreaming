@@ -100,6 +100,7 @@ namespace DoubTech.Elevenlabs.Streaming
 
 #if VOICESDK
         public TTSSpeakerEvents Events => _events;
+        public TTSVoiceSettings VoiceSettings { get; }
         public IAudioPlayer AudioPlayer { get; }
 
         private void RequestSpeech(string text, TTSSpeakerClipEvents playbackEvents, Action onFinished = null)
