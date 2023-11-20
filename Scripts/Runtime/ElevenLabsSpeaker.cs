@@ -14,7 +14,7 @@ using Meta.WitAi.Composer.Integrations;
 using Meta.WitAi.TTS.Data;
 #endif
 
-namespace Meta.MurderMystery.UnityElevenlabsStreaming.Scripts
+namespace DoubTech.Elevenlabs.Streaming
 {
     public class ElevenLabsSpeaker : MonoBehaviour
 #if VOICESDK
