@@ -1,8 +1,8 @@
 {
   "name": "com.doubtech.unity.elevenlabstreaming",
   "displayName": "DoubTech - 3rd Party - Eleven Labs - Streaming",
-  "version": "0.0.2",
-  "unity": "2019.4",
+  "version": "0.0.3",
+  "unity": "2021.3",
   "description": "",
   "keywords": [],
   "category": "Scripts",
