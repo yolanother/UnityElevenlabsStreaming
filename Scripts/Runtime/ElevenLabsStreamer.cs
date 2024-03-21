@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
 using UnityEngine;
 
@@ -34,7 +35,7 @@ namespace Doubtech.ElevenLabs.Streaming
         
         private void OnMessage(byte[] msg)
         {
-            Debug.Log("OnMessage!");
+            Debug.Log("OnMessage! " + Encoding.UTF8.GetString(msg));
         }
         
         private void OnError(string errorMsg)

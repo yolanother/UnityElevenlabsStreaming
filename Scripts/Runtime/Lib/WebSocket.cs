@@ -7,8 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using AOT;
-using System.Runtime.InteropServices;
 using UnityEngine;
 using System.Collections;
 
