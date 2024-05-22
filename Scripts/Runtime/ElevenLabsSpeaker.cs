@@ -1,6 +1,6 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
@@ -68,10 +68,12 @@ namespace DoubTech.Elevenlabs.Streaming
             while (!finished) await Task.Yield();
         }
 
+        #if VOICESDK
         public Task SpeakQueuedTask(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents)
         {
             throw new NotImplementedException();
         }
+        #endif
 
         public void Stop()
         {
