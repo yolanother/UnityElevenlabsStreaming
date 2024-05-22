@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using UnityEngine;
 #if VOICESDK
@@ -55,6 +56,21 @@ namespace DoubTech.Elevenlabs.Streaming
             _elevenLabs.SendPartial(text, null, onFinished: (text) => finished = true);
 
             yield return new WaitUntil(() => finished);
+        }
+
+        public async Task SpeakTask(string text)
+        {
+            Stop();
+
+            var finished = false;
+            _elevenLabs.SendPartial(text, null, onFinished: (t) => finished = true);
+
+            while (!finished) await Task.Yield();
+        }
+
+        public Task SpeakQueuedTask(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents)
+        {
+            throw new NotImplementedException();
         }
 
         public void Stop()
@@ -161,7 +177,12 @@ namespace DoubTech.Elevenlabs.Streaming
         {
             RequestSpeech(text, playbackEvents);
         }
-        
+
+        public async Task SpeakQueuedTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents)
+        {
+            throw new NotImplementedException();
+        }
+
         public IEnumerator SpeakQueuedAsync(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents)
         {
             var last = textsToSpeak.Last();
