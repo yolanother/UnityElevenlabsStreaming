@@ -76,6 +76,12 @@ namespace DoubTech.Elevenlabs.Streaming
         }
         #endif
 
+        public Task SpeakQueuedTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
         public void Stop()
         {
             _elevenLabs.EndStream();
@@ -121,6 +127,126 @@ namespace DoubTech.Elevenlabs.Streaming
         public TTSSpeakerEvents Events => _events;
         public TTSVoiceSettings VoiceSettings { get; }
         public IAudioPlayer AudioPlayer { get; }
+
+        public void Speak(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool Speak(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakAsync(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakAsync(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakTask(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SpeakInterrupt(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool SpeakInterrupt(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakInterruptAsync(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakInterruptAsync(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakInterruptTask(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakInterruptTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SpeakQueued(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SpeakQueued(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool SpeakQueued(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakQueuedAsync(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakQueuedAsync(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerator SpeakQueuedAsync(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakQueuedTask(string textToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakQueuedTask(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents = null,
+            TTSDiskCacheSettings diskCacheSettings = null)
+        {
+            throw new NotImplementedException();
+        }
 
         private void RequestSpeech(string text, TTSSpeakerClipEvents playbackEvents, Action onFinished = null)
         {
