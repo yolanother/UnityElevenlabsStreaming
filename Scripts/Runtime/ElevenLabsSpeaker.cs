@@ -10,13 +10,9 @@ using Meta.WitAi.TTS.Data;
 using Meta.WitAi.TTS.Utilities;
 using UnityEngine;
 #if VOICESDK
-using System;
 using Meta.Voice.Audio;
 using Meta.WitAi.TTS.Interfaces;
-using Meta.WitAi.Json;
-using Meta.WitAi.TTS.Utilities;
 using Meta.WitAi.Composer.Integrations;
-using Meta.WitAi.TTS.Data;
 #endif
 
 namespace DoubTech.Elevenlabs.Streaming
@@ -62,6 +58,8 @@ namespace DoubTech.Elevenlabs.Streaming
             yield return new WaitUntil(() => finished);
         }
 
+#if VOICESDK
+
         public async Task SpeakTask(string text)
         {
             Stop();
@@ -72,30 +70,21 @@ namespace DoubTech.Elevenlabs.Streaming
             while (!finished) await Task.Yield();
         }
 
-        #if VOICESDK
+        public Task SpeakTask(string textToSpeak, TTSSpeakerClipEvents playbackEvents)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SpeakTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents)
+        {
+            throw new NotImplementedException();
+        }
+
         public Task SpeakQueuedTask(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents)
         {
             throw new NotImplementedException();
         }
-        #endif
-
-        Task<string> ISpeaker.SpeakQueuedTask(string[] textsToSpeak, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
-        {
-            throw new NotImplementedException();
-        }
-
-        Task<string> ISpeaker.SpeakQueuedTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
-        {
-            throw new NotImplementedException();
-        }
-
-        public Task SpeakQueuedTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
-            TTSDiskCacheSettings diskCacheSettings = null)
-        {
-            throw new NotImplementedException();
-        }
+#endif
 
         public void Stop()
         {
@@ -154,12 +143,7 @@ namespace DoubTech.Elevenlabs.Streaming
             throw new NotImplementedException();
         }
 
-        void ISpeaker.Speak(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
-        {
-            throw new NotImplementedException();
-        }
-
+        
         public bool Speak(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
             TTSDiskCacheSettings diskCacheSettings = null)
         {
@@ -174,18 +158,6 @@ namespace DoubTech.Elevenlabs.Streaming
 
         public IEnumerator SpeakAsync(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
             TTSDiskCacheSettings diskCacheSettings = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        Task<string> ISpeaker.SpeakTask(string textToSpeak, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
-        {
-            throw new NotImplementedException();
-        }
-
-        Task<string> ISpeaker.SpeakTask(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
         {
             throw new NotImplementedException();
         }
@@ -255,12 +227,6 @@ namespace DoubTech.Elevenlabs.Streaming
             throw new NotImplementedException();
         }
 
-        void ISpeaker.SpeakQueued(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
-        {
-            throw new NotImplementedException();
-        }
-
         public bool SpeakQueued(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
             TTSDiskCacheSettings diskCacheSettings = null)
         {
@@ -281,12 +247,6 @@ namespace DoubTech.Elevenlabs.Streaming
 
         public IEnumerator SpeakQueuedAsync(WitResponseNode responseNode, TTSSpeakerClipEvents playbackEvents = null,
             TTSDiskCacheSettings diskCacheSettings = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        Task<string> ISpeaker.SpeakQueuedTask(string textToSpeak, TTSSpeakerClipEvents playbackEvents,
-            TTSDiskCacheSettings diskCacheSettings)
         {
             throw new NotImplementedException();
         }
