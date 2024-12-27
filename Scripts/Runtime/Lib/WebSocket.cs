@@ -516,6 +516,7 @@ namespace DoubTech.Elevenlabs.Streaming
                 }
                 catch (Exception ex)
                 {
+                    Debug.LogError(ex);
                     OnError?.Invoke(ex.Message);
                     OnClose?.Invoke(WebSocketCloseCode.Abnormal);
                 }

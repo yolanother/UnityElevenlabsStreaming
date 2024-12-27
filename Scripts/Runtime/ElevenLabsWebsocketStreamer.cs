@@ -45,12 +45,16 @@ namespace Doubtech.ElevenLabs.Streaming
 
             audioSource.clip = audioClip;
             audioSource.loop = true;
+        }
 
-            await ConnectToWebSocket();
+        public void Connect()
+        {
+            _ = ConnectToWebSocket();
         }
 
         private void PcmReader(float[] data)
         {
+            Debug.Log("Writing audio data...");
             for (int i = 0; i < data.Length; i++)
             {
                 if (i < bufferWriteIndex)
@@ -155,6 +159,13 @@ namespace Doubtech.ElevenLabs.Streaming
 
         private async Task ConnectToWebSocket()
         {
+            if(null != ws && ws.State == WebSocketState.Open) return;
+            if (null != _connected && !_connected.Task.IsCompleted)
+            {
+                await _connected.Task;
+                return;
+            }
+
             _connected = new TaskCompletionSource<bool>();
             string uri = string.Format(URI, voiceId, optimizeStreamingLatency);
             var headers = new Dictionary<string, string>
@@ -211,7 +222,7 @@ namespace Doubtech.ElevenLabs.Streaming
         private void OnClose(WebSocketCloseCode code)
         {
             Debug.Log("OnClose! " + code);
-            _connected.SetResult(false);
+            if(!_connected.Task.IsCompleted) _connected.SetResult(false);
         }
     }
     
