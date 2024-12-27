@@ -1,6 +1,8 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
+using Doubtech.ElevenLabs.Streaming.Data;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
+using Newtonsoft.Json;
 using UnityEditor;
 
 namespace Doubtech.ElevenLabs.Streaming
@@ -14,9 +16,14 @@ namespace Doubtech.ElevenLabs.Streaming
     {
         [SerializeField] private AudioSource audioSource;
         [SerializeField] private int optimizeStreamingLatency = 4; // Default value
+        
+        [Header("Eleven Labs")]
         [SerializeField] private string elevenLabsApiKey = "<ELEVENLABS_API_KEY>"; // Replace with your actual API key
-        private const string OPENAI_API_KEY = "<OPENAI_API_KEY>"; // Replace with your actual API key
-        private const string VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+        [SerializeField] private string model = "eleven_flash_v2_5";
+        [SerializeField] private string voiceId = "21m00Tcm4TlvDq8ikWAM";
+        
+        [Header("Open AI")]
+        [SerializeField] private string OPENAI_API_KEY = "<OPENAI_API_KEY>"; // Replace with your actual API key
 
         private const string URI =
             "wss://api.elevenlabs.io/v1/text-to-speech/{0}/stream-input?model_id=eleven_monolingual_v1&optimize_streaming_latency={1}";
@@ -25,52 +32,41 @@ namespace Doubtech.ElevenLabs.Streaming
         private Queue<string> messageQueue = new Queue<string>();
         private bool isProcessingQueue = false;
         private AudioClip audioClip;
-        private MemoryStream audioBuffer;
+        private float[] audioBuffer;
         private int bufferWriteIndex = 0;
         private bool _initialMessageSent;
         private TaskCompletionSource<bool> _connected;
 
         async void Start()
         {
-            audioBuffer = new MemoryStream();
-            // Initialize the audio clip and buffer
-            audioClip = AudioClip.Create("ElevenLabsTTS", 44100, 1, 44100, true, PcmReader);
+            audioBuffer = new float[24000 * 10]; // 10 seconds of buffer at 24kHz
+            // Initialize the audio clip
+            audioClip = AudioClip.Create("ElevenLabsTTS", 24000 * 10, 1, 24000, false, PcmReader);
+
+            audioSource.clip = audioClip;
+            audioSource.loop = true;
 
             await ConnectToWebSocket();
-            audioSource.clip = audioClip;
-            audioSource.Play();
         }
 
         private void PcmReader(float[] data)
         {
-            if (null == audioBuffer || audioBuffer.Length == 0) return;
-            
-            // Create a binary reader for the memory buffer
-            using (BinaryReader reader = new BinaryReader(audioBuffer))
+            for (int i = 0; i < data.Length; i++)
             {
-                for (int i = 0; i < data.Length; i++)
+                if (i < bufferWriteIndex)
                 {
-                    if (audioBuffer.Position < audioBuffer.Length)
-                    {
-                        // Read a 16-bit sample from the memory buffer
-                        short sample = reader.ReadInt16();
-                        // Convert the sample to a float in the range -1 to 1 and store it in the data array
-                        data[i] = sample / 32768f;
-                    }
-                    else
-                    {
-                        // If there is no more data in the memory buffer, fill the rest of the data array with zeros
-                        data[i] = 0f;
-                    }
+                    data[i] = audioBuffer[i];
+                }
+                else
+                {
+                    data[i] = 0f;
                 }
             }
-
-            if(audioBuffer.Position >= audioBuffer.Length) audioBuffer.SetLength(0);
         }
 
         async void Update()
         {
-            if (null == ws) return;
+            if (ws == null) return;
             if (!audioClip) return;
             
             ws.DispatchMessageQueue();
@@ -86,10 +82,10 @@ namespace Doubtech.ElevenLabs.Streaming
 
         public void Speak(string message)
         {
-            audioBuffer.SetLength(0);
+            bufferWriteIndex = 0;
             // Clear the queue and send the message
             messageQueue.Clear();
-            _ = SendMessageToWebSocket(message);
+            _ = SendMessageToWebSocket(message, true);
         }
 
         public void SpeakQueued(string message)
@@ -108,7 +104,7 @@ namespace Doubtech.ElevenLabs.Streaming
             // Stop the audio playback and clear the queue
             audioSource.Stop();
             messageQueue.Clear();
-            audioBuffer.SetLength(0);
+            bufferWriteIndex = 0;
         }
 
         public void PausePlayback()
@@ -117,7 +113,7 @@ namespace Doubtech.ElevenLabs.Streaming
             audioSource.Pause();
         }
 
-        private async Task SendMessageToWebSocket(string message)
+        private async Task SendMessageToWebSocket(string message, bool close = false)
         {
             if (ws.State != WebSocketState.Open)
             {
@@ -127,19 +123,20 @@ namespace Doubtech.ElevenLabs.Streaming
             var initialMessage = new
             {
                 text = " ",
-                voice_settings = new { stability = 0.5, similarity_boost = 0.8 },
+                voice_settings = new { stability = 0.5, similarity_boost = 0.8, use_speaker_boost = false },
+                generation_config = new  { chunk_length_schedule = new List<int> {120, 160, 250, 290}},
                 xi_api_key = elevenLabsApiKey,
-                try_trigger_generation = true
+                output_format = "pcm_24000"
             };
-            string initialMessageJson = JsonUtility.ToJson(initialMessage);
-            await ws.SendText(initialMessageJson);
+            await SendData(initialMessage);
+            await SendData(new { text = message });
+            if(close) await SendData(new { text = "" });
+        }
 
-            var messageData = new
-            {
-                text = message,
-                try_trigger_generation = true
-            };
-            string messageJson = JsonUtility.ToJson(messageData);
+        private async Task SendData(object messageData)
+        {
+            string messageJson = JsonConvert.SerializeObject(messageData);
+            Debug.Log("Sending text: " + messageJson);
             await ws.SendText(messageJson);
         }
 
@@ -159,16 +156,31 @@ namespace Doubtech.ElevenLabs.Streaming
         private async Task ConnectToWebSocket()
         {
             _connected = new TaskCompletionSource<bool>();
-            string uri = string.Format(URI, VOICE_ID, optimizeStreamingLatency);
-            ws = new WebSocket(uri);
+            string uri = string.Format(URI, voiceId, optimizeStreamingLatency);
+            var headers = new Dictionary<string, string>
+            {
+                {"xi-api-key", elevenLabsApiKey}
+            };
+            ws = new WebSocket(uri, headers);
             ws.OnMessage += (bytes) =>
             {
                 string message = Encoding.UTF8.GetString(bytes);
-                var data = JsonUtility.FromJson<MessageData>(message);
-                if (data.audio != null)
+                Debug.Log("Received message: " + message);
+                var data = JsonConvert.DeserializeObject<AudioData>(message);
+                if (!string.IsNullOrEmpty(data.Audio))
                 {
-                    byte[] audioData = System.Convert.FromBase64String(data.audio);
-                    audioBuffer.Write(audioData);
+                    Debug.Log("Enqueuing audio...");
+                    byte[] audioData = System.Convert.FromBase64String(data.Audio);
+                    for (int i = 0; i < audioData.Length / 2; i++)
+                    {
+                        short sample = (short)(audioData[i * 2] | (audioData[i * 2 + 1] << 8));
+                        audioBuffer[bufferWriteIndex++ % audioBuffer.Length] = sample / 32768f;
+                    }
+                }
+
+                if (!audioSource.isPlaying)
+                {
+                    audioSource.Play();
                 }
             };
             ws.OnOpen += OnOpen;
@@ -188,7 +200,7 @@ namespace Doubtech.ElevenLabs.Streaming
         
         private void OnMessage(byte[] msg)
         {
-            Debug.Log("OnMessage!");
+            Debug.Log("OnMessage! " + Encoding.UTF8.GetString(msg));
         }
         
         private void OnError(string errorMsg)
@@ -201,13 +213,6 @@ namespace Doubtech.ElevenLabs.Streaming
             Debug.Log("OnClose! " + code);
             _connected.SetResult(false);
         }
-    }
-
-    [System.Serializable]
-    class MessageData
-    {
-        public string audio;
-        public bool isFinal;
     }
     
 #if UNITY_EDITOR
