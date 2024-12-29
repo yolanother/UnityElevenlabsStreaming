@@ -1,5 +1,8 @@
 namespace Doubtech.ElevenLabs.Streaming.Data
 {
+    /// <summary>
+    /// Defines various audio encoding formats supported by the system.
+    /// </summary>
     public enum AudioEncoding
     {
         pcm_16000,
@@ -10,26 +13,28 @@ namespace Doubtech.ElevenLabs.Streaming.Data
         mp3_44100
     }
 
+    /// <summary>
+    /// Provides utility methods for working with AudioEncoding enums.
+    /// </summary>
     public static class AudioEncodingUtils
     {
+        /// <summary>
+        /// Gets the sample rate associated with the given audio encoding.
+        /// </summary>
+        /// <param name="encoding">The audio encoding format.</param>
+        /// <returns>The sample rate in Hz.</returns>
         public static int SampleRate(this AudioEncoding encoding)
         {
-            switch (encoding)
+            return encoding switch
             {
-                case AudioEncoding.pcm_16000:
-                    return 16000;
-                case AudioEncoding.pcm_22050:
-                    return 22050;
-                case AudioEncoding.pcm_24000:
-                    return 24000;
-                case AudioEncoding.pcm_44100:
-                case AudioEncoding.mp3_44100:
-                    return 44100;
-                case AudioEncoding.ulaw_8000:
-                    return 8000;
-                default:
-                    return 24000;
-            }
+                AudioEncoding.pcm_16000 => 16000,
+                AudioEncoding.pcm_22050 => 22050,
+                AudioEncoding.pcm_24000 => 24000,
+                AudioEncoding.pcm_44100 => 44100,
+                AudioEncoding.mp3_44100 => 44100,
+                AudioEncoding.ulaw_8000 => 8000,
+                _ => 24000,
+            };
         }
     }
 }
