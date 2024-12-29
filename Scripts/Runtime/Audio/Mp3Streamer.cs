@@ -4,10 +4,11 @@ using NAudio.Wave;
 #endif
 using System.IO;
 using System.Collections.Generic;
+using Doubtech.ElevenLabs.Streaming.Interfaces;
 
 namespace Doubtech.ElevenLabs.Streaming
 {
-    public class Mp3Streamer : MonoBehaviour
+    public class Mp3Streamer : BaseAudioStreamPlayer
     {
         private AudioSource audioSource;
         private Queue<byte[]> mp3Chunks = new Queue<byte[]>();
@@ -22,12 +23,33 @@ namespace Doubtech.ElevenLabs.Streaming
         {
 #if !NAUDIO
             enabled = false;
+            Debug.LogError("NAudio is required for Mp3Streamer to work. Please import NAudio.");
 #endif
         }
 
-        public void AddMp3Chunk(byte[] mp3Data)
+        protected override void OnResetBuffer()
         {
-            mp3Chunks.Enqueue(mp3Data);
+            base.OnResetBuffer();
+            mp3Chunks.Clear();
+        }
+
+        protected override void OnAddData(byte[] mp3Data)
+        {
+            AddData(mp3Data, 0, mp3Data.Length);
+
+            // If not already playing, start playback.
+            if (!isPlaying)
+            {
+                PlayNextChunk();
+            }
+        }
+
+        protected override void OnAddData(byte[] mp3Data, int offset, int length)
+        {
+            // Copy the data into a new byte array and add it to the queue.
+            byte[] chunk = new byte[length];
+            System.Array.Copy(mp3Data, offset, chunk, 0, length);
+            mp3Chunks.Enqueue(chunk);
 
             // If not already playing, start playback.
             if (!isPlaying)
@@ -50,15 +72,8 @@ namespace Doubtech.ElevenLabs.Streaming
             Mp3FileReader mp3Reader = new Mp3FileReader(mp3Stream);
 
             var waveBuffer = new WaveBuffer(mp3Reader.Mp3WaveFormat.AverageBytesPerSecond * 4);
-
             int bytesRead = mp3Reader.Read(waveBuffer, 0, waveBuffer.numberOfBytes);
-            if (bytesRead > 0)
-            {
-                audioSource.clip = AudioClip.Create("StreamedMp3", bytesRead / 2, 2, mp3Reader.Mp3WaveFormat.SampleRate, false);
-                audioSource.clip.SetData(waveBuffer.FloatBuffer, 0);
-                audioSource.Play();
-                isPlaying = true;
-            }
+            EnqueueDecodedData(waveBuffer.ByteBuffer, 0, bytesRead);
 
             mp3Reader.Close();
             mp3Stream.Close();
@@ -74,5 +89,4 @@ namespace Doubtech.ElevenLabs.Streaming
             }
         }
     }
-
 }
