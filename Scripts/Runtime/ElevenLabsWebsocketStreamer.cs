@@ -65,7 +65,7 @@ namespace DoubTech.ElevenLabs.Streaming
         /// </summary>
         public void Connect()
         {
-            RunInBackground(ConnectToWebSocket);
+            ConnectToWebSocket();
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace DoubTech.ElevenLabs.Streaming
         {
             audioPlayer.Stop();
             messageQueue.Clear();
-            _ = SendMessageToWebSocket(message, true);
+            RunOnBackground(SendMessageToWebSocket, message, true);
         }
 
         /// <summary>
@@ -190,7 +190,7 @@ namespace DoubTech.ElevenLabs.Streaming
             ws.OnError += OnError;
             ws.OnClose += OnClose;
 
-            _ = ws.Connect();
+            RunOnBackground(ws.Connect);
             return _connected.Task;
         }
 

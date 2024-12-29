@@ -26,9 +26,9 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// Runs an action in the background thread.
         /// </summary>
         /// <param name="action">The action to execute.</param>
-        protected void RunInBackground(Action action)
+        protected void RunOnBackground(Action action)
         {
-            ThreadUtils.RunInBackground(action);
+            ThreadUtils.RunOnBackground(action);
         }
 
         /// <summary>
@@ -44,9 +44,29 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// Runs an asynchronous task in the background and safely logs errors if they occur.
         /// </summary>
         /// <param name="asyncTask">The asynchronous task to execute.</param>
-        protected Task RunInBackground(Func<Task> asyncTask)
+        protected Task RunOnBackground(Func<Task> asyncTask)
         {
-            return ThreadUtils.RunInBackground(asyncTask);
+            return ThreadUtils.RunOnBackground(asyncTask);
+        }
+
+        /// <summary>
+        /// Runs an asynchronous task in the background and safely logs errors if they occur.
+        /// </summary>
+        /// <param name="asyncTask">The asynchronous task to execute.</param>
+        /// <param name="data1">The first parameter to pass to the asynchronous task.</param>
+        protected Task RunOnBackground<T1>(Func<T1, Task> asyncTask, T1 data1)
+        {
+            return ThreadUtils.RunOnBackground(async () => await asyncTask.Invoke(data1));
+        }
+
+        /// <summary>
+        /// Runs an asynchronous task in the background and safely logs errors if they occur.
+        /// </summary>
+        /// <param name="asyncTask">The asynchronous task to execute.</param>
+        /// <param name="data1">The first parameter to pass to the asynchronous task.</param>
+        protected Task RunOnBackground<T1, T2>(Func<T1, T2, Task> asyncTask, T1 data1, T2 data2)
+        {
+            return ThreadUtils.RunOnBackground(async () => await asyncTask.Invoke(data1, data2));
         }
 
         /// <summary>
@@ -55,18 +75,18 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// <typeparam name="T">The return type of the asynchronous task.</typeparam>
         /// <param name="asyncTask">The asynchronous task to execute.</param>
         /// <returns>A Task representing the result of the operation.</returns>
-        protected Task<T> RunInBackground<T>(Func<Task<T>> asyncTask)
+        protected Task<T> RunOnBackground<T>(Func<Task<T>> asyncTask)
         {
-            return ThreadUtils.RunInBackground(asyncTask);
+            return ThreadUtils.RunOnBackground(asyncTask);
         }
 
         /// <summary>
         /// Runs a Task in the background and safely logs errors if they occur.
         /// </summary>
         /// <param name="task">The Task to execute.</param>
-        protected Task RunInBackground(Task task)
+        protected Task RunOnBackground(Task task)
         {
-            return ThreadUtils.RunInBackground(() => task);
+            return ThreadUtils.RunOnBackground(() => task);
         }
 
         /// <summary>
@@ -194,7 +214,7 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// Runs an action in the background.
         /// </summary>
         /// <param name="action">The action to execute.</param>
-        public static void RunInBackground(Action action)
+        public static void RunOnBackground(Action action)
         {
             Task.Run(() =>
             {
@@ -213,7 +233,7 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// Runs an asynchronous task in the background and safely logs errors if they occur.
         /// </summary>
         /// <param name="asyncTask">The asynchronous task to execute.</param>
-        public static Task RunInBackground(Func<Task> asyncTask)
+        public static Task RunOnBackground(Func<Task> asyncTask)
         {
             return Task.Run(async () =>
             {
@@ -235,7 +255,7 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// <typeparam name="T">The return type of the asynchronous task.</typeparam>
         /// <param name="asyncTask">The asynchronous task to execute.</param>
         /// <returns>A Task representing the result of the operation.</returns>
-        public static Task<T> RunInBackground<T>(Func<Task<T>> asyncTask)
+        public static Task<T> RunOnBackground<T>(Func<Task<T>> asyncTask)
         {
             return Task.Run(async () =>
             {
@@ -255,7 +275,7 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// Runs a Task in the background and safely logs errors if they occur.
         /// </summary>
         /// <param name="task">The Task to execute.</param>
-        public static Task RunInBackground(Task task)
+        public static Task RunOnBackground(Task task)
         {
             return Task.Run(async () =>
             {
@@ -277,7 +297,7 @@ namespace DoubTech.ElevenLabs.Streaming.Threading
         /// <typeparam name="T">The return type of the Task.</typeparam>
         /// <param name="task">The Task to execute.</param>
         /// <returns>A Task representing the result of the operation.</returns>
-        public static Task<T> RunInBackground<T>(Task<T> task)
+        public static Task<T> RunOnBackground<T>(Task<T> task)
         {
             return Task.Run(async () =>
             {
