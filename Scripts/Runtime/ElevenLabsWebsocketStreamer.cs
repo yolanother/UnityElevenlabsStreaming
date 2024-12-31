@@ -9,6 +9,7 @@ using Doubtech.ElevenLabs.Streaming.Data;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
 using DoubTech.ElevenLabs.Streaming.Threading;
+using Meta.WitAi.Attributes;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
@@ -24,6 +25,12 @@ namespace DoubTech.ElevenLabs.Streaming
         [Tooltip("Configuration settings for Eleven Labs API.")]
         [SerializeField] private ElevenLabsConfig config;
 
+        [Header("Audio Player")] [Tooltip("Audio player used for outputting audio")]
+        #if VOICESDK
+        [ObjectType(typeof(IStreamedAudioPlayer))]
+        #endif
+        [SerializeField] private MonoBehaviour streamedAudioPlayer;
+
         [Header("Debugging")]
         [Tooltip("If true, debug files will be written when audio is received from the server.")]
         [SerializeField] private bool writeDebugFile;
@@ -38,13 +45,23 @@ namespace DoubTech.ElevenLabs.Streaming
         private bool _initialMessageSent;
 
         private IStreamedAudioPlayer audioPlayer;
+        private TaskCompletionSource<bool> _messageQueueTask;
+
+        private float timeout = .25f;
+        private Coroutine enforcedTimeCoroutine;
 
         private bool IsConnected => ws?.State == WebSocketState.Open;
+
+        private void OnValidate()
+        {
+            if (!streamedAudioPlayer) streamedAudioPlayer = GetComponentInChildren<IStreamedAudioPlayer>() as MonoBehaviour;
+        }
 
         protected override void Awake()
         {
             base.Awake();
-            audioPlayer = GetComponent<IStreamedAudioPlayer>();
+            if (streamedAudioPlayer) audioPlayer = streamedAudioPlayer.GetComponent<IStreamedAudioPlayer>();
+            else audioPlayer = GetComponent<IStreamedAudioPlayer>();
         }
 
         private async void Update()
@@ -76,7 +93,19 @@ namespace DoubTech.ElevenLabs.Streaming
         {
             audioPlayer.Stop();
             messageQueue.Clear();
-            RunOnBackground(SendMessageToWebSocket, message, true);
+            messageQueue.Enqueue(message);
+            _ = ProcessMessageQueue();
+        }
+
+        /// <summary>
+        /// Sends a message to be spoken by the Eleven Labs API.
+        /// </summary>
+        /// <param name="message">The message to be spoken.</param>
+        public async Task SpeakAsync(string message)
+        {
+            audioPlayer.Stop();
+            messageQueue.Clear();
+            await SpeakQueuedAsync(message);
         }
 
         /// <summary>
@@ -90,6 +119,16 @@ namespace DoubTech.ElevenLabs.Streaming
             {
                 StartCoroutine(ProcessMessageQueue());
             }
+        }
+
+        /// <summary>
+        /// Queues a message to be spoken by the Eleven Labs API.
+        /// </summary>
+        /// <param name="message">The message to be queued and spoken.</param>
+        public async Task SpeakQueuedAsync(string message)
+        {
+            messageQueue.Enqueue(message);
+            await ProcessMessageQueueAsync();
         }
 
         /// <summary>
@@ -150,7 +189,30 @@ namespace DoubTech.ElevenLabs.Streaming
             }
 
             await SendData(new { text = message });
-            if (close) await SendData(new { text = "" });
+            if (close) await SendCloseTextMessage();
+            else
+            {
+                RunOnMainThread(() =>
+                {
+                    if (null != enforcedTimeCoroutine)
+                    {
+                        StopCoroutine(enforcedTimeCoroutine);
+                    }
+
+                    StartCoroutine(EnforceSpeechTimeout());
+                });
+            }
+        }
+
+        private async Task SendCloseTextMessage()
+        {
+            await SendData(new { text = "" });
+        }
+
+        private IEnumerator EnforceSpeechTimeout()
+        {
+            yield return new WaitForSeconds(timeout);
+            _ = SendCloseTextMessage();
         }
 
         private async Task SendData(object messageData)
@@ -161,14 +223,30 @@ namespace DoubTech.ElevenLabs.Streaming
 
         private IEnumerator ProcessMessageQueue()
         {
-            isProcessingQueue = true;
-            while (messageQueue.Count > 0)
+            yield return AwaitCoroutine(ProcessMessageQueueAsync);
+        }
+
+        private Task ProcessMessageQueueAsync()
+        {
+            if (null != _messageQueueTask && !_messageQueueTask.Task.IsCompleted)
             {
-                string message = messageQueue.Dequeue();
-                yield return AwaitCoroutine(SendMessageToWebSocket(message));
-                yield return null;
+                return _messageQueueTask.Task;
             }
-            isProcessingQueue = false;
+            _messageQueueTask = new TaskCompletionSource<bool>();
+
+            _ = RunOnBackground(async () =>
+            {
+                isProcessingQueue = true;
+                while (messageQueue.Count > 0)
+                {
+                    string message = messageQueue.Dequeue();
+                    await SendMessageToWebSocket(message);
+                }
+                isProcessingQueue = false;
+                _messageQueueTask.SetResult(true);
+                _messageQueueTask = null;
+            });
+            return _messageQueueTask.Task;
         }
 
         private Task<bool> ConnectToWebSocket()

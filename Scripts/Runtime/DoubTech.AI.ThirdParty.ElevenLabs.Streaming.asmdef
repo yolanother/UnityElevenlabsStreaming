@@ -1,6 +1,6 @@
 {
-    "name": "DoubTech.Elevenlabs.Streaming",
-    "rootNamespace": "Doubtech.ElevenLabs.Streaming",
+    "name": "DoubTech.AI.ThirdParty.ElevenLabs.Streaming",
+    "rootNamespace": "DoubTech.AI.ThirdParty.ElevenLabs.Streaming",
     "references": [
         "Meta.WitAi",
         "Meta.WitAi.TTS",

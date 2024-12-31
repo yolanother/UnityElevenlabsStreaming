@@ -34,5 +34,10 @@ namespace Doubtech.ElevenLabs.Streaming.Interfaces
         /// Starts or resumes audio playback from the buffered data.
         /// </summary>
         void Play();
+        
+        /// <summary>
+        /// Returns true if the streamer is currently playing streamed content
+        /// </summary>
+        bool IsPlaying { get; }
     }
 }

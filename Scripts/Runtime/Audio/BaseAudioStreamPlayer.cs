@@ -25,6 +25,8 @@ namespace Doubtech.ElevenLabs.Streaming
         private int bufferWriteIndex;
         private int bufferReadIndex;
 
+        public bool IsPlaying => audioSource.isPlaying;
+
         protected virtual void Start()
         {
             InitializeBuffer();
