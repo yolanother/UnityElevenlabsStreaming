@@ -2,8 +2,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DoubTech.AI.ThirdParty.ElevenLabs.Streaming.Data;
+using Doubtech.ElevenLabs.Streaming;
 using Doubtech.ElevenLabs.Streaming.Data;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using DoubTech.Elevenlabs.Streaming.NativeWebSocket;
@@ -35,7 +38,8 @@ namespace DoubTech.ElevenLabs.Streaming
         [SerializeField] private bool writeDebugFile;
 
         private WebSocket ws;
-        private Queue<string> messageQueue = new();
+        private Queue<AudioRequest> messageQueue = new();
+        private Queue<AudioRequest> activeRequests = new();
         private TaskCompletionSource<bool> _connected;
         private FileStream debugStream;
         private FileStream responseStream;
@@ -92,7 +96,7 @@ namespace DoubTech.ElevenLabs.Streaming
         {
             audioPlayer.Stop();
             messageQueue.Clear();
-            messageQueue.Enqueue(message);
+            Enqueue(message);
             _ = ProcessMessageQueueAsync();
         }
 
@@ -104,7 +108,8 @@ namespace DoubTech.ElevenLabs.Streaming
         {
             audioPlayer.Stop();
             messageQueue.Clear();
-            await SpeakQueuedAsync(message);
+            var request = await SpeakQueuedAsync(message);
+            await request.Task;
         }
 
         /// <summary>
@@ -113,7 +118,7 @@ namespace DoubTech.ElevenLabs.Streaming
         /// <param name="message">The message to be queued and spoken.</param>
         public void SpeakQueued(string message)
         {
-            messageQueue.Enqueue(message);
+            Enqueue(message);
             _ = SpeakQueuedAsync(message);
         }
 
@@ -121,10 +126,24 @@ namespace DoubTech.ElevenLabs.Streaming
         /// Queues a message to be spoken by the Eleven Labs API.
         /// </summary>
         /// <param name="message">The message to be queued and spoken.</param>
-        public async Task SpeakQueuedAsync(string message)
+        public async Task<AudioRequest> SpeakQueuedAsync(string message)
         {
-            messageQueue.Enqueue(message);
+            var request = Enqueue(message);
             await ProcessMessageQueueAsync();
+            await request.Task;
+            return request;
+        }
+
+        private AudioRequest Enqueue(string message)
+        {
+            var request = new AudioRequest()
+            {
+                message = message,
+                charsRemaining = message.Length
+            };
+            request.onComplete += HandleComplete; 
+            messageQueue.Enqueue(request);
+            return request;
         }
 
         /// <summary>
@@ -165,20 +184,21 @@ namespace DoubTech.ElevenLabs.Streaming
             }
         }
 
-        private async Task SendMessageToWebSocket(string message, bool close = false)
+        private async Task<AudioRequest> SendMessageToWebSocket(AudioRequest request, bool close = false)
         {
             if (!IsConnected) await ConnectToWebSocket();
             if (!IsConnected)
             {
                 Debug.LogError("Connection was not established, message not sent.");
-                return;
+                return null;
             }
+            activeRequests.Enqueue(request);
 
             if (!_initialMessageSent)
             {
                 var initialMessage = new
                 {
-                    text = message,
+                    text = request.message,
                     voice_settings = new { stability = 0.5, similarity_boost = 0.8, use_speaker_boost = false },
                     generation_config = new { chunk_length_schedule = new List<int> { 120, 160, 250, 290 } },
                     xi_api_key = config.apiKey
@@ -188,8 +208,9 @@ namespace DoubTech.ElevenLabs.Streaming
             }
             else
             {
-                await SendData(new { text = message });
+                await SendData(new { text = request.message });
             }
+
             if (close) await SendCloseTextMessage();
             else
             {
@@ -203,6 +224,8 @@ namespace DoubTech.ElevenLabs.Streaming
                     StartCoroutine(EnforceSpeechTimeout());
                 });
             }
+            
+            return request;
         }
 
         private async Task SendCloseTextMessage()
@@ -214,6 +237,7 @@ namespace DoubTech.ElevenLabs.Streaming
         {
             yield return new WaitForSeconds(timeout);
             _ = SendCloseTextMessage();
+            enforcedTimeCoroutine = null;
         }
 
         private async Task SendData(object messageData)
@@ -235,7 +259,7 @@ namespace DoubTech.ElevenLabs.Streaming
                 isProcessingQueue = true;
                 while (messageQueue.Count > 0)
                 {
-                    string message = messageQueue.Dequeue();
+                    var message = messageQueue.Dequeue();
                     await SendMessageToWebSocket(message);
                 }
                 isProcessingQueue = false;
@@ -276,16 +300,51 @@ namespace DoubTech.ElevenLabs.Streaming
                 OnError(data.Message);
                 return;
             }
-            if (!string.IsNullOrEmpty(data?.Audio))
+            if (null != data?.Audio)
             {
-                byte[] audioData = Convert.FromBase64String(data.Audio);
-                audioPlayer.AddData(audioData);
+                var request = activeRequests.Peek();
+                request.charsRemaining -= data.Alignment.Chars.Count;
+                Debug.Log($"Processing {request.message} leaving {request.charsRemaining} characters to process.");
+                // Combine the chars and log it
+                Debug.Log("Chunk contains: " + string.Join("", data.Alignment.Chars));
+                var events = new List<PlaybackEvent>();
+                if (data.Alignment.CharStartTimesMs.First() == 0)
+                {
+                    events.Add(new PlaybackEvent(0, () => request.onPlaybackStarted?.Invoke(request)));
+                }
+                
+                var startTime = data.Alignment.CharStartTimesMs[0];
+                var endTime = data.Alignment.CharStartTimesMs[data.Alignment.CharStartTimesMs.Count - 1] + data.Alignment.CharDurationsMs[data.Alignment.CharDurationsMs.Count - 1];
+                var length = endTime - startTime;
+                
+                for(int i = 0; i < data.Alignment.CharStartTimesMs.Count; i++)
+                {
+                    events.Add(new PlaybackEvent(length, () => request.onCharacterPlayed?.Invoke(request, i)));
+                }
+                
+                if (request.charsRemaining <= 0)
+                {
+                    Debug.Log($"Enqueuing completion events at {length}");
+                    events.Add(new PlaybackEvent(length, () => request.onPlaybackComplete?.Invoke(request)));
+                    events.Add(new PlaybackEvent(length, () => request.onComplete?.Invoke(request)));
+                }
 
-                debugStream?.Write(audioData);
+                audioPlayer.AddData(data.Audio, 0, data.Audio.Length, events.ToArray());
+                if (request.charsRemaining <= 0) activeRequests.Dequeue();
+
+                debugStream?.Write(data?.Audio);
                 responseStream?.Write(Encoding.UTF8.GetBytes(message + "\n"));
 
                 RunOnMainThread(audioPlayer.Play);
             }
+        }
+
+        private void HandleComplete(AudioRequest request)
+        {
+            Debug.Log("Audio clip completed: " + request.message);
+            if(!request.Task.IsCompleted) request.taskCompletionSource.SetResult(request);
+            else Debug.LogError($"HandleComplete was called twice for {request.message}");
+            request.onComplete -= HandleComplete;
         }
 
         private void OnOpen()
@@ -313,11 +372,29 @@ namespace DoubTech.ElevenLabs.Streaming
 
         private void OnError(string errorMsg)
         {
+            if (activeRequests.Count > 0)
+            {
+                foreach (var request in activeRequests)
+                {
+                    request.onError?.Invoke(request, errorMsg);
+                    request.onComplete?.Invoke(request);
+                }
+                activeRequests.Clear();
+            }
+
             Debug.LogError(errorMsg);
         }
 
         private void OnClose(WebSocketCloseCode code)
         {
+            if (activeRequests.Count > 0)
+            {
+                foreach (var request in activeRequests)
+                {
+                    request.onComplete?.Invoke(request);
+                }
+                activeRequests.Clear();
+            }
             if (null != _connected && !_connected.Task.IsCompleted)
             {
                 _connected?.SetResult(false);
@@ -325,6 +402,7 @@ namespace DoubTech.ElevenLabs.Streaming
 
             _connected = null;
             _initialMessageSent = false;
+            activeRequests.Clear();
 
             CloseStream(ref debugStream);
             CloseStream(ref responseStream);

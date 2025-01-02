@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 /// <summary>
 /// Represents the normalized alignment data for characters in audio transcription.
@@ -49,10 +50,13 @@ namespace Doubtech.ElevenLabs.Streaming.Data
     /// </summary>
     public class AudioData
     {
+        private byte[] audioData;
+        
         /// <summary>
         /// Encoded audio data as a base64 string.
         /// </summary>
-        public string Audio { get; set; } = string.Empty;
+        [JsonProperty("audio")]
+        public string audioDataString { get; set; } = string.Empty;
 
         /// <summary>
         /// Indicates whether the audio data is finalized.
@@ -71,5 +75,19 @@ namespace Doubtech.ElevenLabs.Streaming.Data
         
         public string Message { get; set; } = string.Empty;
         public string Error { get; set; } = string.Empty;
+
+        public byte[] Audio
+        {
+            get
+            {
+                if (audioData == null && !string.IsNullOrEmpty(audioDataString))
+                {
+                    audioData = System.Convert.FromBase64String(audioDataString);
+                    audioDataString = null;
+                }
+                
+                return audioData;
+            }
+        }
     }
 }

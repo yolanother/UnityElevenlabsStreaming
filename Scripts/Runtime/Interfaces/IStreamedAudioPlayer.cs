@@ -31,6 +31,15 @@ namespace Doubtech.ElevenLabs.Streaming.Interfaces
         void AddData(byte[] audioData, int offset, int length);
 
         /// <summary>
+        /// Adds a subset of audio data to the playback buffer.
+        /// </summary>
+        /// <param name="audioData">The audio data to add to the buffer.</param>
+        /// <param name="offset">The offset in the audio data array to start reading from.</param>
+        /// <param name="length">The number of bytes to read from the audio data array.</param>
+        /// <param name="events">The playback events to trigger during playback. These must be sorted by time to trigger in order.</param>
+        void AddData(byte[] audioData, int offset, int length, PlaybackEvent[] events);
+
+        /// <summary>
         /// Starts or resumes audio playback from the buffered data.
         /// </summary>
         void Play();

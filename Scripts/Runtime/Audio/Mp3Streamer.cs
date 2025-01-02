@@ -34,21 +34,12 @@ namespace Doubtech.ElevenLabs.Streaming
         }
 
         /// <summary>
-        /// Adds MP3 data to the buffer and starts playback if not already playing.
-        /// </summary>
-        /// <param name="mp3Data">MP3 data to add.</param>
-        protected override void OnAddData(byte[] mp3Data)
-        {
-            AddData(mp3Data, 0, mp3Data.Length);
-        }
-
-        /// <summary>
         /// Adds a chunk of MP3 data to the buffer and starts playback if not already playing.
         /// </summary>
         /// <param name="mp3Data">MP3 data buffer.</param>
         /// <param name="offset">Offset within the buffer.</param>
         /// <param name="length">Length of data to read.</param>
-        protected override void OnAddData(byte[] mp3Data, int offset, int length)
+        protected override void OnAddData(byte[] mp3Data, int offset, int length, PlaybackEvent[] events)
         {
             if (length <= 0) return;
 
@@ -58,14 +49,14 @@ namespace Doubtech.ElevenLabs.Streaming
 
             if (!isPlaying)
             {
-                PlayNextChunk();
+                PlayNextChunk(events);
             }
         }
 
         /// <summary>
         /// Plays the next MP3 chunk in the queue.
         /// </summary>
-        private void PlayNextChunk()
+        private void PlayNextChunk(PlaybackEvent[] events)
         {
 #if NAUDIO
             if (mp3Chunks.Count == 0)
@@ -84,7 +75,7 @@ namespace Doubtech.ElevenLabs.Streaming
 
                 if (bytesRead > 0)
                 {
-                    EnqueueDecodedData(waveBuffer.ByteBuffer, 0, bytesRead);
+                    EnqueueDecodedData(waveBuffer.ByteBuffer, 0, bytesRead, events);
                 }
             }
 

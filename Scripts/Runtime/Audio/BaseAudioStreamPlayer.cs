@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Concurrent;
 using Doubtech.ElevenLabs.Streaming.Data;
 using Doubtech.ElevenLabs.Streaming.Interfaces;
 using UnityEngine;
@@ -24,6 +26,7 @@ namespace Doubtech.ElevenLabs.Streaming
         private long bufferWritten;
         private int bufferWriteIndex;
         private int bufferReadIndex;
+        private ConcurrentQueue<PlaybackEvent> eventQueue = new ConcurrentQueue<PlaybackEvent>();
 
         public bool IsPlaying => audioSource.isPlaying;
 
@@ -72,6 +75,14 @@ namespace Doubtech.ElevenLabs.Streaming
                     data[i] = 0f;
                     stop = true;
                 }
+                
+                if(eventQueue.Count > 0 && eventQueue.TryPeek(out var playbackEvent))
+                {
+                    if (bufferRead >= playbackEvent.bufferOffset && eventQueue.TryDequeue(out _))
+                    {
+                        playbackEvent.callback?.Invoke();
+                    }
+                }
             }
         }
 
@@ -109,7 +120,7 @@ namespace Doubtech.ElevenLabs.Streaming
         /// <param name="audioData">Raw audio data to add.</param>
         public void AddData(byte[] audioData)
         {
-            OnAddData(audioData, 0, audioData.Length);
+            OnAddData(audioData, 0, audioData.Length, Array.Empty<PlaybackEvent>());
         }
 
         /// <summary>
@@ -120,7 +131,18 @@ namespace Doubtech.ElevenLabs.Streaming
         /// <param name="length">Length of data to read.</param>
         public void AddData(byte[] audioData, int offset, int length)
         {
-            OnAddData(audioData, offset, length);
+            OnAddData(audioData, offset, length, Array.Empty<PlaybackEvent>());
+        }
+
+        /// <summary>
+        /// Adds audio data for playback with an offset and length.
+        /// </summary>
+        /// <param name="audioData">Raw audio data to add.</param>
+        /// <param name="offset">Offset to start reading from.</param>
+        /// <param name="length">Length of data to read.</param>
+        public void AddData(byte[] audioData, int offset, int length, PlaybackEvent[] events)
+        {
+            OnAddData(audioData, offset, length, events);
         }
 
         /// <summary>
@@ -129,8 +151,15 @@ namespace Doubtech.ElevenLabs.Streaming
         /// <param name="audioData">Audio data to decode.</param>
         /// <param name="offset">Offset in the audio data array.</param>
         /// <param name="length">Length of audio data to process.</param>
-        protected virtual void EnqueueDecodedData(byte[] audioData, int offset, int length)
+        protected virtual void EnqueueDecodedData(byte[] audioData, int offset, int length, PlaybackEvent[] events)
         {
+            for (int i = 0; i < events.Length; i++)
+            {
+                // Calculate the offset in the buffer for the event based on the ms time
+                int eventOffset = (int)(events[i].time * encoding.SampleRate() / 1000);
+                events[i].bufferOffset = Math.Min(bufferWritten + eventOffset, bufferWritten + audioBuffer.Length - 1);
+                eventQueue.Enqueue(events[i]);
+            }
             for (int i = 0; i < length / 2; i++)
             {
                 if (bufferWriteIndex >= audioBuffer.Length)
@@ -145,18 +174,12 @@ namespace Doubtech.ElevenLabs.Streaming
         }
 
         /// <summary>
-        /// Handles adding audio data for custom processing. Must be implemented by derived classes.
-        /// </summary>
-        /// <param name="audioData">Raw audio data.</param>
-        protected abstract void OnAddData(byte[] audioData);
-
-        /// <summary>
         /// Handles adding audio data for custom processing with offset and length. Must be implemented by derived classes.
         /// </summary>
         /// <param name="audioData">Raw audio data.</param>
         /// <param name="offset">Offset to start reading from.</param>
         /// <param name="length">Length of data to read.</param>
-        protected abstract void OnAddData(byte[] audioData, int offset, int length);
+        protected abstract void OnAddData(byte[] audioData, int offset, int length, PlaybackEvent[] events);
 
         /// <summary>
         /// Initializes the audio buffer.
@@ -174,6 +197,19 @@ namespace Doubtech.ElevenLabs.Streaming
             audioClip = AudioClip.Create("ElevenLabsTTS", audioBuffer.Length, 1, encoding.SampleRate(), true, PcmReader);
             audioSource.clip = audioClip;
             audioSource.loop = true;
+        }
+    }
+
+    public class PlaybackEvent
+    {
+        public int time;
+        public long bufferOffset;
+        public Action callback;
+
+        public PlaybackEvent(int timeOffset, Action callback)
+        {
+            this.time = timeOffset;
+            this.callback = callback;
         }
     }
 }
