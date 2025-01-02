@@ -1,5 +1,5 @@
 {
-    "name": "DoubTech.Elevenlabs.Streaming.Editor",
+    "name": "DoubTech.ElevenLabs.Streaming.Editor",
     "rootNamespace": "Doubtech.ElevenLabs.Streaming",
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -9,5 +9,6 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": false,
+    "references":[ "GUID:fb3fa623721e6854ba0eaa196d3e5971" ]
 }

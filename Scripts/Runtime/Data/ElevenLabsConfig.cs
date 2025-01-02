@@ -2,53 +2,66 @@
 using Meta.WitAi.Attributes;
 #endif
 using System;
+using Doubtech.ElevenLabs.Streaming.Data;
+using DoubTech.ElevenLabs.Streaming.Data;
 using UnityEngine;
 
-namespace Doubtech.ElevenLabs.Streaming.Data
+namespace DoubTech.ElevenLabs.Streaming
 {
     /// <summary>
     /// Configuration for Eleven Labs integration, including API key, model, and request settings.
     /// </summary>
     [CreateAssetMenu(fileName = "ElevenLabsConfig", menuName = "Eleven Labs/Config", order = 0)]
-    public class ElevenLabsConfig : ScriptableObject
+    public partial class ElevenLabsConfig : ScriptableObject
     {
         [Header("API Key")]
         [Tooltip("The API key for accessing Eleven Labs services.")]
 #if VOICESDK
         [HiddenText]
 #endif
-        [SerializeField] public string apiKey;
+        [SerializeField] internal string apiKey;
 
         [Header("Model Configuration")]
         [Tooltip("The model to use for text-to-speech.")]
-        [SerializeField] private string model = "eleven_flash_v2_5";
+        [SerializeField] internal string model = "eleven_flash_v2_5";
         
         [Tooltip("The voice identifier for text-to-speech.")]
-        [SerializeField] private string voice = "21m00Tcm4TlvDq8ikWAM";
+        [VoiceDropdown]
+        [SerializeField] internal string voice = "21m00Tcm4TlvDq8ikWAM";
 
         [Header("Request Configuration")]
         [Tooltip("Optimize latency for streaming (in milliseconds).")]
-        [SerializeField] private int optimizeStreamingLatency = 4;
+        [SerializeField] internal int optimizeStreamingLatency = 4;
         
         [Tooltip("Enable SSML (Speech Synthesis Markup Language) parsing.")]
-        [SerializeField] private bool enableSsml = false;
+        [SerializeField] internal bool enableSsml = false;
         
         [Tooltip("Synchronize alignment for the speech output.")]
-        [SerializeField] private bool syncAlignment = false;
+        [SerializeField] internal bool syncAlignment = false;
 
         [Header("Response Configuration")]
         [Tooltip("The output audio encoding format.")]
-        [SerializeField] private AudioEncoding outputFormat = AudioEncoding.pcm_24000;
+        [SerializeField] internal AudioEncoding outputFormat = AudioEncoding.pcm_24000;
 
         [Header("Endpoint Configuration")]
         [Tooltip("The host URL for the Eleven Labs API.")]
-        [SerializeField] private string host = "api.elevenlabs.io";
+        [SerializeField] internal string host = "api.elevenlabs.io";
         
         [Tooltip("The port number for the Eleven Labs API.")]
-        [SerializeField] private int port = 443;
+        [SerializeField] internal int port = 443;
         
         [Tooltip("The schema (protocol) used for the API connection.")]
-        [SerializeField] private string schema = "wss";
+        [SerializeField] internal string schema = "wss";
+        
+        [Header("Voice Data")]
+        [Tooltip("The voices available for text-to-speech.")]
+        [HideInInspector]
+        [SerializeField] internal VoiceResponse voices;
+        
+        [Header("Model Data")]
+        [Tooltip("The models available for text-to-speech.")]
+        [HideInInspector]
+        [SerializeField] internal ModelResponse models;
 
         /// <summary>
         /// Constructs the full URL for API requests based on the configuration settings.
